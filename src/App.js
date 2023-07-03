@@ -1,23 +1,24 @@
-import logo from './logo.svg';
 import './App.css';
 
+import { useEffect } from 'react';
+import SceneInit from './lib/SceneInit';
+import ShapeInit from './lib/ShapeInit';
+
 function App() {
+  useEffect(() => {
+    const globe_scene = new SceneInit('GlobeCanvas');
+    globe_scene.initialize();
+    const shape = new ShapeInit(globe_scene.scene)
+    shape.createBox(16, 0, 15, 20);
+    shape.createSphere(10, 30, -30, -30);
+    shape.createSphere(10, -30, -30, -30);
+    globe_scene.animate();
+
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <canvas id='GlobeCanvas'/>
     </div>
   );
 }
