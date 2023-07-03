@@ -67,31 +67,42 @@ class AsteroidData:
     def get_asteroid_data_by_id(self, asteroid_id):
         response = requests.get(f'https://api.nasa.gov/neo/rest/v1/neo/{asteroid_id}?api_key={self.api_key}')
         raw_data = response.json()
-        time.sleep(3)
+        time.sleep(1)
         return raw_data["orbital_data"]
     
     def process_data(self):
         processed_data = []
-        for asteroid in self.all_neos:
-            ast_data = self.get_asteroid_data_by_id(asteroid['id'])
-            ast_dict = {
-                "id": asteroid['id'],
-                "name": asteroid['name'],
-                "velocity": asteroid['close_approach_data'][0]['relative_velocity'],
-                "miss_distance": asteroid['close_approach_data'][0]['miss_distance'],
-                "perihelion_time": ast_data['perihelion_time'],
-                "ascending_node_longitude": ast_data['ascending_node_longitude']
-            }
+        if not self.check_file_exists(self.processed_file_path):
+            for asteroid in self.all_neos:
+                ast_data = self.get_asteroid_data_by_id(asteroid['id'])
+                ast_dict = {
+                    "id": asteroid['id'], # ID of NEO
+                    "name": asteroid['name'], # Name of NEO
+                    "velocity": asteroid['close_approach_data'][0]['relative_velocity'], # Speed of NEO
+                    "miss_distance": asteroid['close_approach_data'][0]['miss_distance'], # Distance NEO missed Earth
+                    "ODD": ast_data['orbit_determination_date'], # (Orbit Determination Data) When Orbit was determined
+                    "epoch_osculation": ast_data['epoch_osculation'], # Reference epoch for orbital elements (When orbit was determined)
+                    "eccentricity": ast_data['eccentricity'], # Shape of NEO orbit
+                    "semi_major_axis": ast_data['semi_major_axis'],  # AVG distance form center of orbit to NEO
+                    "inclination": ast_data['inclination'], # Angle between the orbital plan and equator
+                    "ascending_node_longitude": ast_data['ascending_node_longitude'], # Longitude of ascending point, where the orbit intersects the referenve plane
+                    "perihelion_distance": ast_data['perihelion_distance'], # Closest distance between NEO and suns orbit
+                    "perihelion_argument": ast_data['perihelion_argument'], # Angle between perihelion and ascending node
+                    "aphelion_distance": ast_data['aphelion_distance'], # The farthest distance betweem NEO and suns orbit
+                    "mean_anomaly": ast_data['mean_anomaly'], # Fraction of orbit period elapsed since reference epoch
+                    "mean_motion": ast_data['mean_motion'] # AVG angular speed at which NEO moves along its orbit
+                }
 
-            processed_data.append(ast_dict)
-            print(f'Asteroid {asteroid["name"]} - {asteroid["id"]} - Complete')
+                processed_data.append(ast_dict)
+                print(f'Asteroid {asteroid["name"]} - {asteroid["id"]} - Complete')
 
+            self.save_data({"NEO_data":processed_data}, self.processed_file_path)
 
         print(processed_data[0])
 
     def run_asteroid_data(self):
         self.get_raw_data()
-        # self.process_data()
+        self.process_data()
 
 AsteroidData(url="https://api.nasa.gov/neo/rest/v1/feed?api_key=",
              api_key_path="NASA/api_key.json", 
