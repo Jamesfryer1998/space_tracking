@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import time
+import math
+
 
 class AsteroidData:
     def __init__(self, url, api_key_path, save_file_path, processed_file_path):
@@ -92,6 +94,9 @@ class AsteroidData:
                     "mean_anomaly": ast_data['mean_anomaly'], # Fraction of orbit period elapsed since reference epoch
                     "mean_motion": ast_data['mean_motion'] # AVG angular speed at which NEO moves along its orbit
                 }
+                neo_position, neo_velocity = self.track_neo_position(ast_dict)
+                print(f"NEO Position: {neo_position}")
+                print(f"NEO Velocity: {neo_velocity}")
 
                 processed_data.append(ast_dict)
                 print(f'Asteroid {asteroid["name"]} - {asteroid["id"]} - Complete')
@@ -100,6 +105,113 @@ class AsteroidData:
 
         print(processed_data[0])
 
+        
+    
+    ##############################################
+    
+    def convert_deg_to_rad(self, degrees):
+        return math.radians(float(degrees))
+
+    def convert_km_to_au(self, kilometers):
+        return float(kilometers) / 149597870.7
+
+    def calculate_position_velocity(self,semi_major_axis, eccentricity, inclination, ascending_node_longitude,
+                                perihelion_argument, true_anomaly):
+        eccentricity = float(eccentricity)
+        # Convert orbital elements to radians
+        inclination_rad = self.convert_deg_to_rad(inclination)
+        ascending_node_longitude_rad = self.convert_deg_to_rad(ascending_node_longitude)
+        perihelion_argument_rad = self.convert_deg_to_rad(perihelion_argument)
+        true_anomaly_rad = self.convert_deg_to_rad(true_anomaly)
+
+        # Calculate position and velocity in 3D space
+        x = semi_major_axis * (math.cos(true_anomaly_rad) - eccentricity)
+        y = semi_major_axis * math.sqrt(1 - eccentricity**2) * math.sin(true_anomaly_rad)
+        z = 0.0
+
+        v_x = -math.sqrt((1 + eccentricity) / (semi_major_axis * (1 - eccentricity))) * math.sin(true_anomaly_rad)
+        v_y = math.sqrt((1 + eccentricity) / (semi_major_axis * (1 - eccentricity))) * math.cos(true_anomaly_rad)
+        v_z = 0.0
+
+        # Apply rotations to position and velocity vectors
+        x_prime = x * (math.cos(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) -
+                    math.sin(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad)) - \
+                y * (math.sin(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) +
+                    math.cos(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad))
+        y_prime = x * (math.cos(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) +
+                    math.sin(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) *
+                    math.cos(inclination_rad)) + \
+                y * (math.cos(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) -
+                    math.sin(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad))
+        z_prime = x * (math.sin(ascending_node_longitude_rad) * math.sin(inclination_rad)) + \
+                y * (math.cos(ascending_node_longitude_rad) * math.sin(inclination_rad))
+
+        v_x_prime = v_x * (math.cos(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) -
+                    math.sin(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad)) - \
+                v_y * (math.sin(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) +
+                    math.cos(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad))
+        v_y_prime = v_x * (math.cos(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) +
+                    math.sin(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) *
+                    math.cos(inclination_rad)) + \
+                v_y * (math.cos(ascending_node_longitude_rad) * math.cos(perihelion_argument_rad) -
+                    math.sin(ascending_node_longitude_rad) * math.sin(perihelion_argument_rad) *
+                    math.cos(inclination_rad))
+        v_z_prime = v_x * (math.sin(ascending_node_longitude_rad) * math.sin(inclination_rad)) + \
+                v_y * (math.cos(ascending_node_longitude_rad) * math.sin(inclination_rad))
+
+        return (x_prime, y_prime, z_prime), (v_x_prime, v_y_prime, v_z_prime)
+
+    def calculate_true_anomaly(self, mean_anomaly, eccentricity):
+        eccentric_anomaly = self.mean_anomaly_to_eccentric_anomaly(mean_anomaly, eccentricity)
+        true_anomaly = self.eccentric_anomaly_to_true_anomaly(eccentric_anomaly, eccentricity)
+        return true_anomaly
+
+    def mean_anomaly_to_eccentric_anomaly(self, mean_anomaly, eccentricity):
+        E0 = mean_anomaly  # Initial guess for eccentric anomaly
+
+        # # Iterate to improve the estimate of eccentric anomaly
+        # while True:
+        #     E1 = E0 - (E0 - eccentricity * math.sin(E0) - mean_anomaly) / (1 - eccentricity * math.cos(E0))
+        #     if abs(E1 - E0) < 1e-8:
+        #         break
+        #     E0 = E1
+
+        return E0
+
+    def eccentric_anomaly_to_true_anomaly(self, eccentric_anomaly, eccentricity):
+        true_anomaly = 2 * math.atan2(math.sqrt(1 + float(eccentricity)) * math.sin(float(eccentric_anomaly) / 2),
+                                    math.sqrt(1 - float(eccentricity)) * math.cos(float(eccentric_anomaly) / 2))
+        return math.degrees(true_anomaly)
+
+    # Example usage
+    def track_neo_position(self, ast_dict):
+        semi_major_axis = self.convert_km_to_au(ast_dict['semi_major_axis'])
+        eccentricity = ast_dict['eccentricity']
+        inclination = ast_dict['inclination']
+        ascending_node_longitude = ast_dict['ascending_node_longitude']
+        perihelion_argument = ast_dict['perihelion_argument']
+        mean_anomaly = ast_dict['mean_anomaly']
+
+        true_anomaly = self.calculate_true_anomaly(mean_anomaly, eccentricity)
+        position, velocity = self.calculate_position_velocity(semi_major_axis, eccentricity, inclination,
+                                                        ascending_node_longitude, perihelion_argument, true_anomaly)
+
+        # You can now use the calculated position and velocity to track the NEO at the given time
+
+        return position, velocity
+
+##############################################
+    
+    
+    
+    
+    
+    
     def run_asteroid_data(self):
         self.get_raw_data()
         self.process_data()
