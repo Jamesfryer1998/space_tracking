@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+// import image from '/Users/james/Projects/globe_site/src/lib/img/globe.jpeg'
+// Change this to '/Users/james/Projects/globe_site/src/lib/img/earth_16k.jpeg' in production
 
 
 export default class ShapeInit {
@@ -18,9 +20,11 @@ export default class ShapeInit {
     }
 
     // Create a sphere with a defined size and position
-    createSphere(size, x=0, y=0, z=0) {
-        const sphereGeometry = new THREE.SphereGeometry(size, size, size);
-        const sphereMaterial = new THREE.MeshNormalMaterial();
+    createSphere(size, x = 0, y = 0, z = 0, image) {
+        const sphereGeometry = new THREE.SphereGeometry(size, 50, 50);
+        const textureLoader = new THREE.TextureLoader();
+        const texture = textureLoader.load(image);
+        const sphereMaterial = new THREE.MeshStandardMaterial({ map: texture });
         const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
         this.scene.add(sphereMesh);
         this.setShapePosition(sphereMesh, x, y, z);
@@ -29,9 +33,9 @@ export default class ShapeInit {
     // Set the position of the shape on the scene
     setShapePosition(shape, x=0, y=0, z=0) {
         shape.position.set(x, y, z)
-        shape.rotation.x += 0.008;
-        shape.rotation.y += 0.008;
-        shape.rotation.z += 0.008;
+        // shape.rotation.x += 0.008;
+        shape.rotation.y -= 0.00015; // -= Spinning Clockwise
+        shape.rotation.z -= 0.000015; // -= Spinning Clockwise
         requestAnimationFrame(() => this.setShapePosition(shape, x, y, z));
     }
 }

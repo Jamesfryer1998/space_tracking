@@ -38,7 +38,6 @@ class AsteroidData:
         print(f'Dates of NEOs: {dates}')
         print(f'Total Num NEOs: {len(self.all_neos)}')
         
-        # asterdoid_ids = [neo["neo_reference_id"] for neo in self.all_neos]
         close_approach_data = [neo["close_approach_data"][0] for neo in self.all_neos]
         relative_velocities = np.array([float(data["relative_velocity"]["miles_per_hour"]) for data in close_approach_data])
         miss_distances = np.array([float(data["miss_distance"]["kilometers"]) for data in close_approach_data])
@@ -48,7 +47,7 @@ class AsteroidData:
         print(f'All Orbiting Bodies: {set(data["orbiting_body"] for data in close_approach_data)}')
         print(f'AVG mph of NEO: {np.mean(relative_velocities)}')
         print(f'AVG kph of NEO: {np.mean(relative_velocities * 1.60934)}')
-        print(f'AVG kps of NEO: {np.mean(relative_velocities * 0.44704)}')
+        print(f'AVG kps of NEO: {np.mean(relative_velocities * 1.60934) / 60 / 60}')
         print(f'Closest Asteroid (kilometers): {np.min(miss_distances)}')
         print(f'Furthest Asteroid (kilometers): {np.max(miss_distances)}')
         print(f'Biggest Asteroid (kilometers): {np.min(estimated_diameter_min)}')
@@ -61,6 +60,7 @@ class AsteroidData:
             response = requests.get(self.request_url)
             self.raw_data = response.json()
             self.save_data(self.raw_data, self.save_file_path)
+            self.file_stats(self.raw_data)
         else:
             print(f'Loading file from: {self.save_file_path}\n')
             self.raw_data = self.load_json(self.save_file_path)
@@ -75,7 +75,8 @@ class AsteroidData:
     def process_data(self):
         processed_data = []
         if not self.check_file_exists(self.processed_file_path):
-            for asteroid in self.all_neos:
+            for asteroid, index in zip(self.all_neos, range(len(self.all_neos))):
+                print(f'Processing Asteroid {asteroid["name"]} - {asteroid["id"]}... {index+1}/{len(self.all_neos)}')
                 ast_data = self.get_asteroid_data_by_id(asteroid['id'])
                 ast_dict = {
                     "id": asteroid['id'], # ID of NEO
@@ -99,14 +100,14 @@ class AsteroidData:
                 print(f"NEO Velocity: {neo_velocity}")
 
                 processed_data.append(ast_dict)
-                print(f'Asteroid {asteroid["name"]} - {asteroid["id"]} - Complete')
+                print(f'Completed Asteroid {asteroid["name"]} - {asteroid["id"]}\n')
 
             self.save_data({"NEO_data":processed_data}, self.processed_file_path)
 
-        print(processed_data[0])
-
+        else:
+            print(f'All NEOs processed for {self.date_now.date()}')
         
-    
+    # Will need to change this to be consistent with the size of the THREE globe
     ##############################################
     
     def convert_deg_to_rad(self, degrees):
@@ -205,12 +206,7 @@ class AsteroidData:
 
         return position, velocity
 
-##############################################
-    
-    
-    
-    
-    
+    ##############################################
     
     def run_asteroid_data(self):
         self.get_raw_data()
